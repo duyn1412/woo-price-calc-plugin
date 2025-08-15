@@ -13,7 +13,45 @@
 
 register_activation_hook(__FILE__, 'woo_price_calc_plugin_activate');
 
+add_filter('flying_press_cache_include_cookies', function ($cookies) {
+    $cookies[] = 'province_cache';
+    return $cookies;
+});
 
+// Preload cache for all provinces
+add_filter('flying_press_preload_urls', function ($urls) {
+    // List of all Canadian provinces
+    $provinces = array(
+        'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'ON', 'PE', 'QC', 'SK',
+        'NT', 'NU', 'YT'
+    );
+    
+    // Get important pages to preload
+    $important_pages = array(
+        home_url('/'), // Homepage
+        home_url('/shop/'), // Shop page
+        home_url('/cart/'), // Cart page
+        home_url('/checkout/'), // Checkout page
+        home_url('/my-account/'), // My Account page
+    );
+    
+    // Add each province to each important page
+    foreach ($important_pages as $page_url) {
+        foreach ($provinces as $province) {
+            $urls[] = add_query_arg('province', $province, $page_url);
+        }
+    }
+    
+    return $urls;
+});
+
+// Trigger FlyingPress preload when plugin is activated or settings are updated
+function trigger_flyingpress_preload() {
+    if (function_exists('flying_press_preload')) {
+        flying_press_preload();
+    }
+}
+add_action('admin_init', 'trigger_flyingpress_preload');
 
 function woo_price_calc_plugin_activate() {
     if (!is_plugin_active('woocommerce/woocommerce.php')) {
@@ -89,6 +127,7 @@ function get_logo_url() {
         return false;
     }
 }
+
 
 
 function is_admin_simulating_customer_role() {
@@ -359,7 +398,7 @@ function handle_d_age_verification_form() {
         $redirect_url = add_query_arg('province', $province, $_SERVER['HTTP_REFERER']);
         
         // Clear cache before redirect
-        wp_cache_flush();
+       // wp_cache_flush();
         
         wp_redirect($redirect_url);
         exit;
