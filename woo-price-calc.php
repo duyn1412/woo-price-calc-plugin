@@ -533,7 +533,8 @@ function check_taxable_categories($product) {
 function get_curent_tax_province($product){
   
 
-    $customer_zone = isset($_GET['province']) ? $_GET['province'] : null;
+    // Try to get province from URL first, then from cookie as fallback
+    $customer_zone = isset($_GET['province']) ? $_GET['province'] : (isset($_COOKIE['province_cache']) ? $_COOKIE['province_cache'] : null);
     
     // Debug: Check if province is being read correctly
     // error_log('Province from URL: ' . $customer_zone);
@@ -890,7 +891,8 @@ function d_alter_price_cart( $cart ) {
 }
 
 function check_product_pa_size($price, $product) {
-    $customer_zone = isset($_GET['province']) ? $_GET['province'] : null;
+    // Try to get province from URL first, then from cookie as fallback
+    $customer_zone = isset($_GET['province']) ? $_GET['province'] : (isset($_COOKIE['province_cache']) ? $_COOKIE['province_cache'] : null);
     $provinces = get_option('woocommerce_taxable_provinces', array());
     $tax_60_ml = get_option('woocommerce_taxable_categories_60ml', 0);
     $tax_120_ml = get_option('woocommerce_taxable_categories_120ml', 0);
@@ -902,7 +904,7 @@ function check_product_pa_size($price, $product) {
       
            
   //  $customer_zone = isset($_COOKIE['province']) ? $_COOKIE['province'] : null;
-    //var_dump($customer_zone);
+     var_dump($customer_zone);
 
 
         if ($product->is_type('variation')) {
