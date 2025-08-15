@@ -28,6 +28,34 @@ function woo_price_calc_plugin_activate() {
     add_option('woo_price_calc_plugin_do_activation_redirect', true);
 }
 
+// CDN Cache Optimization: Cookie + Query String handling
+function handle_province_cdn_cache() {
+    // Skip if admin or AJAX request
+    if (is_admin() || wp_doing_ajax()) {
+        return;
+    }
+    
+    // If province is in URL query string, set cookie for future requests
+    if (isset($_GET['province']) && !empty($_GET['province'])) {
+        $province = sanitize_text_field($_GET['province']);
+        setcookie('province_cache', $province, time() + (86400 * 30), "/"); // 30 days
+        return;
+    }
+    
+    // If no province in URL but cookie exists, redirect to add query string
+    if (!isset($_GET['province']) && isset($_COOKIE['province_cache']) && !empty($_COOKIE['province_cache'])) {
+        $province = sanitize_text_field($_COOKIE['province_cache']);
+        $current_url = add_query_arg('province', $province, $_SERVER['REQUEST_URI']);
+        
+        // Only redirect if not already on a page with province parameter
+        if (strpos($_SERVER['REQUEST_URI'], 'province=') === false) {
+            wp_redirect($current_url);
+            exit;
+        }
+    }
+}
+add_action('init', 'handle_province_cdn_cache', 1);
+
 
 
 
@@ -323,6 +351,10 @@ function handle_d_age_verification_form() {
     if (isset($_POST['province'])) {
         // Sanitize the province value
         $province = sanitize_text_field($_POST['province']);
+        
+        // Set cookie for CDN cache optimization
+        setcookie('province_cache', $province, time() + (86400 * 30), "/"); // 30 days
+        
         // Redirect to the same page with province as query parameter
         $redirect_url = add_query_arg('province', $province, $_SERVER['HTTP_REFERER']);
         
@@ -405,6 +437,10 @@ function store_guest_billing_state($post_data) {
     parse_str($post_data, $checkout_data);
     if (isset($checkout_data['billing_state'])) {
         $province = sanitize_text_field($checkout_data['billing_state']);
+        
+        // Set cookie for CDN cache optimization
+        setcookie('province_cache', $province, time() + (86400 * 30), "/"); // 30 days
+        
         // Redirect to current page with province parameter
         $current_url = add_query_arg('province', $province, $_SERVER['REQUEST_URI']);
         wp_redirect($current_url);
