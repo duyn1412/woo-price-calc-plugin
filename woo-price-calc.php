@@ -99,6 +99,14 @@ function handle_province_cdn_cache() {
             exit;
         }
     }
+    
+    // Prevent caching for homepage without province parameter
+    if ((is_front_page() || is_home()) && !isset($_GET['province'])) {
+        // Add no-cache headers for homepage without province
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+    }
 }
 add_action('init', 'handle_province_cdn_cache', 1);
 
