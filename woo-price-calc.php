@@ -83,7 +83,15 @@ function handle_province_cdn_cache() {
     // If no province in URL but cookie exists, redirect to add query string
     if (!isset($_GET['province']) && isset($_COOKIE['province_cache']) && !empty($_COOKIE['province_cache'])) {
         $province = sanitize_text_field($_COOKIE['province_cache']);
-        $current_url = add_query_arg('province', $province, $_SERVER['REQUEST_URI']);
+        
+        // Special handling for homepage
+        if (is_front_page() || is_home()) {
+            // For homepage, redirect to root with province parameter
+            $current_url = add_query_arg('province', $province, home_url('/'));
+        } else {
+            // For other pages, add province to current URL
+            $current_url = add_query_arg('province', $province, $_SERVER['REQUEST_URI']);
+        }
         
         // Only redirect if not already on a page with province parameter
         if (strpos($_SERVER['REQUEST_URI'], 'province=') === false) {
@@ -398,7 +406,7 @@ function handle_d_age_verification_form() {
         $redirect_url = add_query_arg('province', $province, $_SERVER['HTTP_REFERER']);
         
         // Clear cache before redirect
-       // wp_cache_flush();
+         wp_cache_flush();
         
         wp_redirect($redirect_url);
         exit;
@@ -904,7 +912,7 @@ function check_product_pa_size($price, $product) {
       
            
   //  $customer_zone = isset($_COOKIE['province']) ? $_COOKIE['province'] : null;
-     var_dump($customer_zone);
+    // var_dump($customer_zone);
 
 
         if ($product->is_type('variation')) {
