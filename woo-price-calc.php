@@ -133,7 +133,7 @@ function handle_province_cdn_cache() {
         }, 1);
     }
 }
-add_action('init', 'handle_province_cdn_cache', 1);
+add_action('template_redirect', 'handle_province_cdn_cache');
 
 // Disable cache for homepage without province parameter
 function disable_homepage_cache() {
