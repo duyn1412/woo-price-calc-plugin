@@ -18,32 +18,46 @@ add_filter('flying_press_cache_include_cookies', function ($cookies) {
     return $cookies;
 });
 
+// add_filter('flying_press_is_cacheable', function ($bypass) {
+//     // Chỉ chạy cho homepage
+//     if (is_front_page() || is_home()) {
+//         // Nếu KHÔNG có query string -> bypass
+//         if (empty($_SERVER['QUERY_STRING'])) {
+//             return false; // bypass cache
+//         }
+//     }
+//     return $bypass; // giữ nguyên mặc định
+// });
+
+
+
+
 // Preload cache for all provinces
-add_filter('flying_press_preload_urls', function ($urls) {
-    // List of all Canadian provinces
-    $provinces = array(
-        'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'ON', 'PE', 'QC', 'SK',
-        'NT', 'NU', 'YT'
-    );
+// add_filter('flying_press_preload_urls', function ($urls) {
+//     // List of all Canadian provinces
+//     $provinces = array(
+//         'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'ON', 'PE', 'QC', 'SK',
+//         'NT', 'NU', 'YT'
+//     );
     
-    // Get important pages to preload
-    $important_pages = array(
-        home_url('/'), // Homepage
-        home_url('/shop/'), // Shop page
-        home_url('/cart/'), // Cart page
-        home_url('/checkout/'), // Checkout page
-        home_url('/my-account/'), // My Account page
-    );
+//     // Get important pages to preload
+//     $important_pages = array(
+//         home_url('/'), // Homepage
+//         home_url('/shop/'), // Shop page
+//         home_url('/cart/'), // Cart page
+//         home_url('/checkout/'), // Checkout page
+//         home_url('/my-account/'), // My Account page
+//     );
     
-    // Add each province to each important page
-    foreach ($important_pages as $page_url) {
-        foreach ($provinces as $province) {
-            $urls[] = add_query_arg('province', $province, $page_url);
-        }
-    }
+//     // Add each province to each important page
+//     foreach ($important_pages as $page_url) {
+//         foreach ($provinces as $province) {
+//             $urls[] = add_query_arg('province', $province, $page_url);
+//         }
+//     }
     
-    return $urls;
-});
+//     return $urls;
+// });
 
 // Trigger FlyingPress preload when plugin is activated or settings are updated
 function trigger_flyingpress_preload() {
@@ -74,26 +88,6 @@ function handle_province_cdn_cache() {
         return;
     }
 
-    // Debug: Log all variables
-    if (is_front_page() || is_home()) {
-        echo '<div style="background: #f0f0f0; padding: 10px; margin: 10px; border: 1px solid #ccc;">';
-        echo '<h3>DEBUG: Province Cache Function</h3>';
-        echo '<p><strong>is_front_page():</strong> ' . (is_front_page() ? 'true' : 'false') . '</p>';
-        echo '<p><strong>is_home():</strong> ' . (is_home() ? 'true' : 'false') . '</p>';
-        echo '<p><strong>$_GET[\'province\']:</strong> ' . (isset($_GET['province']) ? $_GET['province'] : 'NOT SET') . '</p>';
-        echo '<p><strong>$_COOKIE[\'province_cache\']:</strong> ' . (isset($_COOKIE['province_cache']) ? $_COOKIE['province_cache'] : 'NOT SET') . '</p>';
-        echo '<p><strong>$_SERVER[\'REQUEST_URI\']:</strong> ' . $_SERVER['REQUEST_URI'] . '</p>';
-        echo '<p><strong>Current URL:</strong> ' . home_url('/') . '</p>';
-        
-        if (isset($_COOKIE['province_cache']) && !empty($_COOKIE['province_cache'])) {
-            $province = sanitize_text_field($_COOKIE['province_cache']);
-            $redirect_url = add_query_arg('province', $province, home_url('/'));
-            echo '<p><strong>Redirect URL:</strong> ' . $redirect_url . '</p>';
-            echo '<p><strong>Cookie province:</strong> ' . $province . '</p>';
-        }
-        echo '</div>';
-    }
-
     // If province is in URL query string, set a cookie for future requests
     if (isset($_GET['province']) && !empty($_GET['province'])) {
         $province = sanitize_text_field($_GET['province']);
@@ -101,39 +95,46 @@ function handle_province_cdn_cache() {
         return;
     }
 
-    // If no province in URL but cookie exists, redirect to add query string
-    if (!isset($_GET['province']) && isset($_COOKIE['province_cache']) && !empty($_COOKIE['province_cache'])) {
-        $province = sanitize_text_field($_COOKIE['province_cache']);
-
-        // Special handling for homepage
-        if (is_front_page() || is_home()) {
-            // For homepage, redirect to root with province parameter
-            $current_url = add_query_arg('province', $province, home_url('/'));
-            
-            // Debug: Show redirect info
-            echo '<div style="background: #ffeb3b; padding: 10px; margin: 10px; border: 1px solid #ff9800;">';
-            echo '<h3>REDIRECTING!</h3>';
-            echo '<p><strong>From:</strong> ' . $_SERVER['REQUEST_URI'] . '</p>';
-            echo '<p><strong>To:</strong> ' . $current_url . '</p>';
-            echo '<p><strong>Province:</strong> ' . $province . '</p>';
-            echo '</div>';
-            
-            // Force redirect
-            wp_redirect($current_url);
-            exit;
-        } else {
-            // For other pages, add province to current URL
-            $current_url = add_query_arg('province', $province, $_SERVER['REQUEST_URI']);
-        }
-
-        // Only redirect if not already on a page with province parameter
-        if (strpos($_SERVER['REQUEST_URI'], 'province=') === false) {
-            wp_redirect($current_url);
-            exit;
-        }
+    // For homepage without province, add JavaScript redirect logic
+    if ((is_front_page() || is_home()) && !isset($_GET['province'])) {
+        add_action('wp_footer', function() {
+            ?>
+            <script>
+            (function() {
+                // Check if province cookie exists
+                function getCookie(name) {
+                    const value = `; ${document.cookie}`;
+                    const parts = value.split(`; ${name}=`);
+                    if (parts.length === 2) return parts.pop().split(';').shift();
+                    return null;
+                }
+                
+                const province = getCookie('province_cache');
+                
+                if (province && province.trim() !== '') {
+                    console.log('Province cookie found:', province);
+                    
+                    // Redirect to homepage with province parameter
+                    const currentUrl = window.location.origin + '/';
+                    const redirectUrl = currentUrl + '?province=' + encodeURIComponent(province);
+                    
+                    console.log('Redirecting from:', currentUrl);
+                    console.log('Redirecting to:', redirectUrl);
+                    
+                    // Small delay to ensure page loads
+                    setTimeout(function() {
+                        window.location.href = redirectUrl;
+                    }, 100);
+                } else {
+                    console.log('No province cookie found');
+                }
+            })();
+            </script>
+            <?php
+        }, 999);
     }
 }
-add_action('template_redirect', 'handle_province_cdn_cache');
+add_action('init', 'handle_province_cdn_cache', 1);
 
 // Disable cache for homepage without province parameter
 function disable_homepage_cache() {
