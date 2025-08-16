@@ -95,45 +95,7 @@ function handle_province_cdn_cache() {
         return;
     }
 
-    // For ALL pages without province, add JavaScript redirect logic
-    if (!isset($_GET['province'])) {
-        add_action('wp_head', function() {
-            ?>
-            <script>
-            (function() {
-                // Check if province cookie exists
-                function getCookie(name) {
-                    const value = `; ${document.cookie}`;
-                    const parts = value.split(`; ${name}=`);
-                    if (parts.length === 2) return parts.pop().split(';').shift();
-                    return null;
-                }
-                
-                const province = getCookie('province_cache');
-                
-                if (province && province.trim() !== '') {
-                    console.log('Province cookie found:', province);
-                    
-                    // Get current URL and add province parameter
-                    const currentUrl = window.location.href;
-                    const separator = currentUrl.includes('?') ? '&' : '?';
-                    const redirectUrl = currentUrl + separator + 'province=' + encodeURIComponent(province);
-                    
-                    console.log('Redirecting from:', currentUrl);
-                    console.log('Redirecting to:', redirectUrl);
-                    
-                    // Redirect immediately without delay
-                    window.location.href = redirectUrl;
-                } else {
-                    console.log('No province cookie found');
-                }
-            })();
-            </script>
-            <?php
-        }, 1);
-    }
-
-    // PHP redirect as backup - if no province in URL but cookie exists
+    // PHP redirect - if no province in URL but cookie exists
     if (!isset($_GET['province']) && isset($_COOKIE['province_cache']) && !empty($_COOKIE['province_cache'])) {
         $province = sanitize_text_field($_COOKIE['province_cache']);
         
@@ -143,6 +105,7 @@ function handle_province_cdn_cache() {
     }
 }
 add_action('template_redirect', 'handle_province_cdn_cache');
+
 
 // Disable cache for homepage without province parameter
 function disable_homepage_cache() {
