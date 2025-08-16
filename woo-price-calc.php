@@ -18,16 +18,13 @@ add_filter('flying_press_cache_include_cookies', function ($cookies) {
     return $cookies;
 });
 
-// add_filter('flying_press_is_cacheable', function ($bypass) {
-//     // Chỉ chạy cho homepage
-//     if (is_front_page() || is_home()) {
-//         // Nếu KHÔNG có query string -> bypass
-//         if (empty($_SERVER['QUERY_STRING'])) {
-//             return false; // bypass cache
-//         }
-//     }
-//     return $bypass; // giữ nguyên mặc định
-// });
+add_filter('flying_press_is_cacheable', function ($bypass) {
+    // Bypass cache cho tất cả các URL không có query string
+    if (empty($_SERVER['QUERY_STRING'])) {
+        return false; // bypass cache
+    }
+    return $bypass; // giữ nguyên mặc định
+});
 
 
 
