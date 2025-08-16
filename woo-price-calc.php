@@ -132,6 +132,15 @@ function handle_province_cdn_cache() {
             <?php
         }, 1);
     }
+
+    // PHP redirect as backup - if no province in URL but cookie exists
+    if (!isset($_GET['province']) && isset($_COOKIE['province_cache']) && !empty($_COOKIE['province_cache'])) {
+        $province = sanitize_text_field($_COOKIE['province_cache']);
+        
+        // Redirect to current page with province parameter
+        wp_redirect(add_query_arg('province', $province, $_SERVER['REQUEST_URI']));
+        exit;
+    }
 }
 add_action('template_redirect', 'handle_province_cdn_cache');
 
