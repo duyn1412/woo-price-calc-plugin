@@ -47,7 +47,8 @@ add_filter('flying_press_preload_urls', function ($urls) {
 
 // Trigger FlyingPress preload when plugin is activated or settings are updated
 function trigger_flyingpress_preload() {
-    if (function_exists('flying_press_preload')) {
+    // Only run in admin and when FlyingPress is active
+    if (is_admin() && function_exists('flying_press_preload')) {
         flying_press_preload();
     }
 }
@@ -66,24 +67,23 @@ function woo_price_calc_plugin_activate() {
     add_option('woo_price_calc_plugin_do_activation_redirect', true);
 }
 
-// CDN Cache Optimization: Cookie + Query String handling
 function handle_province_cdn_cache() {
-    // Skip if admin or AJAX request
-    if (is_admin() || wp_doing_ajax()) {
+    // Skip if it's an admin request, AJAX request, cron, or CLI
+    if (is_admin() || wp_doing_ajax() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) {
         return;
     }
-    
-    // If province is in URL query string, set cookie for future requests
+
+    // If province is in URL query string, set a cookie for future requests
     if (isset($_GET['province']) && !empty($_GET['province'])) {
         $province = sanitize_text_field($_GET['province']);
         setcookie('province_cache', $province, time() + (86400 * 30), "/"); // 30 days
         return;
     }
-    
+
     // If no province in URL but cookie exists, redirect to add query string
     if (!isset($_GET['province']) && isset($_COOKIE['province_cache']) && !empty($_COOKIE['province_cache'])) {
         $province = sanitize_text_field($_COOKIE['province_cache']);
-        
+
         // Special handling for homepage
         if (is_front_page() || is_home()) {
             // For homepage, redirect to root with province parameter
@@ -92,14 +92,14 @@ function handle_province_cdn_cache() {
             // For other pages, add province to current URL
             $current_url = add_query_arg('province', $province, $_SERVER['REQUEST_URI']);
         }
-        
+
         // Only redirect if not already on a page with province parameter
         if (strpos($_SERVER['REQUEST_URI'], 'province=') === false) {
             wp_redirect($current_url);
             exit;
         }
     }
-    
+
     // Prevent caching for homepage without province parameter
     if ((is_front_page() || is_home()) && !isset($_GET['province'])) {
         // Add no-cache headers for homepage without province
@@ -108,7 +108,8 @@ function handle_province_cdn_cache() {
         header('Expires: 0');
     }
 }
-add_action('init', 'handle_province_cdn_cache', 1);
+add_action('template_redirect', 'handle_province_cdn_cache');
+
 
 
 
@@ -496,10 +497,8 @@ function store_guest_billing_state($post_data) {
         // Set cookie for CDN cache optimization
         setcookie('province_cache', $province, time() + (86400 * 30), "/"); // 30 days
         
-        // Redirect to current page with province parameter
-        $current_url = add_query_arg('province', $province, $_SERVER['REQUEST_URI']);
-        wp_redirect($current_url);
-        exit;
+        // Don't redirect here to avoid infinite redirects
+        // The province will be handled by the main province logic
     }
 }
 

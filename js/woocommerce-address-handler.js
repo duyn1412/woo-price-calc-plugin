@@ -20,34 +20,8 @@ jQuery(document).ready(function($) {
             date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
             expires = "; expires=" + date.toUTCString();
         }
-        // Set cookie with CDN compatibility
-        document.cookie = name + "=" + (value || "") + expires + "; path=/; SameSite=Lax";
-        
-        // Also try to set via AJAX for CDN compatibility
-        if (name === 'province') {
-            setProvinceViaAJAX(value);
-        }
-        
+        document.cookie = name + "=" + (value || "") + expires + "; path=/";
         // console.log("Cookie set:", name, value);
-    }
-    
-    // Function to set province via AJAX for CDN compatibility
-    function setProvinceViaAJAX(province) {
-        $.ajax({
-            url: wc_checkout_params.ajax_url || '/wp-admin/admin-ajax.php',
-            type: 'POST',
-            data: {
-                action: 'set_province_cookie',
-                province: province,
-                nonce: wc_checkout_params.nonce || ''
-            },
-            success: function(response) {
-                console.log('Province set via AJAX:', response);
-            },
-            error: function(xhr, status, error) {
-                console.log('AJAX province set failed:', error);
-            }
-        });
     }
 
     // Monitor changes to the state fields (billing and shipping) using a MutationObserver
