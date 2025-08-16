@@ -105,59 +105,59 @@ add_action('template_redirect', 'handle_province_cdn_cache');
 
 
 // Disable cache for homepage without province parameter
-function disable_homepage_cache() {
-    // Skip if it's an admin request, AJAX request, cron, or CLI
-    if (is_admin() || wp_doing_ajax() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) {
-        return;
-    }
+// function disable_homepage_cache() {
+//     // Skip if it's an admin request, AJAX request, cron, or CLI
+//     if (is_admin() || wp_doing_ajax() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) {
+//         return;
+//     }
 
-    // Only disable cache for homepage without province parameter
-    if ((is_front_page() || is_home()) && !isset($_GET['province'])) {
-        // Force no-cache headers
-        header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
-        header('Pragma: no-cache');
-        header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+//     // Only disable cache for homepage without province parameter
+//     if ((is_front_page() || is_home()) && !isset($_GET['province'])) {
+//         // Force no-cache headers
+//         header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+//         header('Pragma: no-cache');
+//         header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
         
-        // Additional headers for better cache control
-        header('X-Accel-Expires: 0');
-        header('X-Cache-Control: no-cache');
+//         // Additional headers for better cache control
+//         header('X-Accel-Expires: 0');
+//         header('X-Cache-Control: no-cache');
         
-        // Remove any existing cache headers
-        if (function_exists('header_remove')) {
-            header_remove('Last-Modified');
-            header_remove('ETag');
-        }
-    }
-}
-add_action('send_headers', 'disable_homepage_cache', 1);
+//         // Remove any existing cache headers
+//         if (function_exists('header_remove')) {
+//             header_remove('Last-Modified');
+//             header_remove('ETag');
+//         }
+//     }
+// }
+// add_action('send_headers', 'disable_homepage_cache', 1);
 
 
 // Additional cache control for CDN and caching plugins
-function add_cdn_cache_headers() {
-    // Skip if it's an admin request, AJAX request, cron, or CLI
-    if (is_admin() || wp_doing_ajax() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) {
-        return;
-    }
+// function add_cdn_cache_headers() {
+//     // Skip if it's an admin request, AJAX request, cron, or CLI
+//     if (is_admin() || wp_doing_ajax() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) {
+//         return;
+//     }
 
-    // Only for homepage without province parameter
-    if ((is_front_page() || is_home()) && !isset($_GET['province'])) {
-        // Set meta tags for better cache control
-        add_action('wp_head', function() {
-            echo '<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">' . "\n";
-            echo '<meta http-equiv="Pragma" content="no-cache">' . "\n";
-            echo '<meta http-equiv="Expires" content="0">' . "\n";
-        }, 1);
+//     // Only for homepage without province parameter
+//     if ((is_front_page() || is_home()) && !isset($_GET['province'])) {
+//         // Set meta tags for better cache control
+//         add_action('wp_head', function() {
+//             echo '<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">' . "\n";
+//             echo '<meta http-equiv="Pragma" content="no-cache">' . "\n";
+//             echo '<meta http-equiv="Expires" content="0">' . "\n";
+//         }, 1);
         
-        // Force output buffering to ensure headers are sent
-        if (!headers_sent()) {
-            // Additional CDN-specific headers
-            header('Surrogate-Control: no-store');
-            header('CDN-Cache-Control: no-cache');
-            header('Fastly-Cache-Control: no-cache');
-        }
-    }
-}
-add_action('init', 'add_cdn_cache_headers', 1);
+//         // Force output buffering to ensure headers are sent
+//         if (!headers_sent()) {
+//             // Additional CDN-specific headers
+//             header('Surrogate-Control: no-store');
+//             header('CDN-Cache-Control: no-cache');
+//             header('Fastly-Cache-Control: no-cache');
+//         }
+//     }
+// }
+// add_action('init', 'add_cdn_cache_headers', 1);
 
 
 
