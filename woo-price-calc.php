@@ -74,6 +74,26 @@ function handle_province_cdn_cache() {
         return;
     }
 
+    // Debug: Log all variables
+    if (is_front_page() || is_home()) {
+        echo '<div style="background: #f0f0f0; padding: 10px; margin: 10px; border: 1px solid #ccc;">';
+        echo '<h3>DEBUG: Province Cache Function</h3>';
+        echo '<p><strong>is_front_page():</strong> ' . (is_front_page() ? 'true' : 'false') . '</p>';
+        echo '<p><strong>is_home():</strong> ' . (is_home() ? 'true' : 'false') . '</p>';
+        echo '<p><strong>$_GET[\'province\']:</strong> ' . (isset($_GET['province']) ? $_GET['province'] : 'NOT SET') . '</p>';
+        echo '<p><strong>$_COOKIE[\'province_cache\']:</strong> ' . (isset($_COOKIE['province_cache']) ? $_COOKIE['province_cache'] : 'NOT SET') . '</p>';
+        echo '<p><strong>$_SERVER[\'REQUEST_URI\']:</strong> ' . $_SERVER['REQUEST_URI'] . '</p>';
+        echo '<p><strong>Current URL:</strong> ' . home_url('/') . '</p>';
+        
+        if (isset($_COOKIE['province_cache']) && !empty($_COOKIE['province_cache'])) {
+            $province = sanitize_text_field($_COOKIE['province_cache']);
+            $redirect_url = add_query_arg('province', $province, home_url('/'));
+            echo '<p><strong>Redirect URL:</strong> ' . $redirect_url . '</p>';
+            echo '<p><strong>Cookie province:</strong> ' . $province . '</p>';
+        }
+        echo '</div>';
+    }
+
     // If province is in URL query string, set a cookie for future requests
     if (isset($_GET['province']) && !empty($_GET['province'])) {
         $province = sanitize_text_field($_GET['province']);
@@ -89,6 +109,18 @@ function handle_province_cdn_cache() {
         if (is_front_page() || is_home()) {
             // For homepage, redirect to root with province parameter
             $current_url = add_query_arg('province', $province, home_url('/'));
+            
+            // Debug: Show redirect info
+            echo '<div style="background: #ffeb3b; padding: 10px; margin: 10px; border: 1px solid #ff9800;">';
+            echo '<h3>REDIRECTING!</h3>';
+            echo '<p><strong>From:</strong> ' . $_SERVER['REQUEST_URI'] . '</p>';
+            echo '<p><strong>To:</strong> ' . $current_url . '</p>';
+            echo '<p><strong>Province:</strong> ' . $province . '</p>';
+            echo '</div>';
+            
+            // Force redirect
+            wp_redirect($current_url);
+            exit;
         } else {
             // For other pages, add province to current URL
             $current_url = add_query_arg('province', $province, $_SERVER['REQUEST_URI']);
@@ -129,6 +161,7 @@ function disable_homepage_cache() {
     }
 }
 add_action('send_headers', 'disable_homepage_cache', 1);
+
 
 // Additional cache control for CDN and caching plugins
 function add_cdn_cache_headers() {
