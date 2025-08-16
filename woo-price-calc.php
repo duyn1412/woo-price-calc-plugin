@@ -95,9 +95,9 @@ function handle_province_cdn_cache() {
         return;
     }
 
-    // For homepage without province, add JavaScript redirect logic
-    if ((is_front_page() || is_home()) && !isset($_GET['province'])) {
-        add_action('wp_footer', function() {
+    // For ALL pages without province, add JavaScript redirect logic
+    if (!isset($_GET['province'])) {
+        add_action('wp_head', function() {
             ?>
             <script>
             (function() {
@@ -114,24 +114,23 @@ function handle_province_cdn_cache() {
                 if (province && province.trim() !== '') {
                     console.log('Province cookie found:', province);
                     
-                    // Redirect to homepage with province parameter
-                    const currentUrl = window.location.origin + '/';
-                    const redirectUrl = currentUrl + '?province=' + encodeURIComponent(province);
+                    // Get current URL and add province parameter
+                    const currentUrl = window.location.href;
+                    const separator = currentUrl.includes('?') ? '&' : '?';
+                    const redirectUrl = currentUrl + separator + 'province=' + encodeURIComponent(province);
                     
                     console.log('Redirecting from:', currentUrl);
                     console.log('Redirecting to:', redirectUrl);
                     
-                    // Small delay to ensure page loads
-                    setTimeout(function() {
-                        window.location.href = redirectUrl;
-                    }, 100);
+                    // Redirect immediately without delay
+                    window.location.href = redirectUrl;
                 } else {
                     console.log('No province cookie found');
                 }
             })();
             </script>
             <?php
-        }, 999);
+        }, 1);
     }
 }
 add_action('init', 'handle_province_cdn_cache', 1);
