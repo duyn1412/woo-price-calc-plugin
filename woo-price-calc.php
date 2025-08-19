@@ -100,11 +100,18 @@ function handle_province_cdn_cache() {
         wp_redirect(add_query_arg('province', $province, $_SERVER['REQUEST_URI']));
         exit;
     }
+    
+    // If no province in URL and no cookie, redirect to ?province=no
+    if (!isset($_GET['province']) && (!isset($_COOKIE['province_cache']) || empty($_COOKIE['province_cache']))) {
+        wp_redirect(add_query_arg('province', 'no', $_SERVER['REQUEST_URI']));
+        exit;
+    }
 }
 add_action('template_redirect', 'handle_province_cdn_cache');
 
 
 // Disable cache for homepage without province parameter
+
 // function disable_homepage_cache() {
 //     // Skip if it's an admin request, AJAX request, cron, or CLI
 //     if (is_admin() || wp_doing_ajax() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) {
@@ -168,6 +175,9 @@ function enqueue_age_verifier_script() {
     wp_enqueue_style('age-verifier', plugin_dir_url(__FILE__) . '/styles.css', array(), '1.0');
 
     wp_enqueue_script('age-verifier', plugin_dir_url(__FILE__) . 'js/age-verifier.js', array('jquery'), '1.0.0', true);
+
+    // Enqueue province form handler script
+    wp_enqueue_script('province-form-handler', plugin_dir_url(__FILE__) . 'js/province-form-handler.js', array('jquery'), '1.0.0', true);
 
       // Check if the 'woocommerce-google-address.php' plugin is active
       //if (is_plugin_active('woocommerce-google-address/woocommerce-google-address.php')) {
@@ -269,9 +279,7 @@ function age_verification_dialog() {
 		<p>This site is intended for adults <span class="bold-txt"><span id="age-limit">19</span> years and older</span>. If you are not legally able to purchase tobacco products in your province, please do not enter this site.</p>
 		</center>
 		<div class="custom-age-btn-box">
-        <form id="d-age-verification-form" action="<?php echo admin_url('admin-post.php'); ?>" method="post">
-        <input type="hidden" name="action" value="d_age_verification_form">
-        <?php wp_nonce_field('d_age_verification_form_nonce', 'davf_nonce'); ?>
+        <form id="d-age-verification-form">
 
         <div class="custom-age-btn-box-row" id="province-box">
       
@@ -438,42 +446,8 @@ function custom_override_checkout_fields( $fields ) {
 
 
 
-// Hook for logged-in users
-add_action('admin_post_d_age_verification_form', 'handle_d_age_verification_form');
-
-// Hook for non-logged-in users
-add_action('admin_post_nopriv_d_age_verification_form', 'handle_d_age_verification_form');
-
-function handle_d_age_verification_form() {
-    // Verify the nonce
- 
-    if (!isset($_POST['davf_nonce']) || !wp_verify_nonce($_POST['davf_nonce'], 'd_age_verification_form_nonce')) {
-        wp_die('Session expired. Please refresh the page and try again.', 'Error', array('back_link' => true));
-        // error_log('Invalid nonce');
-
-    }
-    // Check if the province is set in the POST data
-    if (isset($_POST['province'])) {
-        // Sanitize the province value
-        $province = sanitize_text_field($_POST['province']);
-        
-        // Set cookie for CDN cache optimization
-        setcookie('province_cache', $province, time() + (86400 * 30), "/"); // 30 days
-        
-        // Redirect to the same page with province as query parameter
-        $redirect_url = add_query_arg('province', $province, $_SERVER['HTTP_REFERER']);
-        
-        // Clear cache before redirect
-         wp_cache_flush();
-        
-        wp_redirect($redirect_url);
-        exit;
-    }
-    
-    // If no province provided, redirect back
-    wp_redirect($_SERVER['HTTP_REFERER']);
-    exit;
-}
+// JavaScript will handle form submission instead of PHP
+// Form will submit via AJAX, set cookie, and redirect
 
 
 
