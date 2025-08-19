@@ -233,7 +233,7 @@ function is_admin_simulating_customer_role() {
 
 
 function d_add_province_class($classes) {
-    if (!isset($_GET['province'])) {
+    if (!isset($_GET['province']) || $_GET['province'] === 'no') {
         $classes[] = 'no-province';
     }
     return $classes;
@@ -242,9 +242,9 @@ add_filter('body_class', 'd_add_province_class');
 
 function age_verification_dialog() {
     // PHP code to generate the HTML for the form
-    // Check if the province is set in URL
+    // Check if the province is set in URL and not 'no'
   
-    if (isset($_GET['province'])) {
+    if (isset($_GET['province']) && $_GET['province'] !== 'no') {
         return;
     }
     //var_dump($_GET['province']);
