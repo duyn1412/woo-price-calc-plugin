@@ -13,50 +13,6 @@
 
 register_activation_hook(__FILE__, 'woo_price_calc_plugin_activate');
 
-add_filter('flying_press_cache_include_cookies', function ($cookies) {
-    $cookies[] = 'province_cache';
-    return $cookies;
-});
-
-add_filter('flying_press_is_cacheable', function ($bypass) {
-    // Bypass cache cho tất cả các URL không có query string
-    if (empty($_SERVER['QUERY_STRING'])) {
-        return false; // bypass cache
-    }
-    return $bypass; // giữ nguyên mặc định
-});
-
-
-
-
-// Preload cache for all provinces
-add_filter('flying_press_preload_urls', function ($urls) {
-    // List of all Canadian provinces
-    $provinces = array(
-        'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'ON', 'PE', 'QC', 'SK',
-        'NT', 'NU', 'YT','no'
-    );
-    
-    // Get important pages to preload
-    $important_pages = array(
-        home_url('/'), // Homepage
-        home_url('/shop/'), // Shop page
-        home_url('/cart/'), // Cart page
-        home_url('/checkout/'), // Checkout page
-        home_url('/my-account/'), // My Account page
-    );
-    
-    // Add each province to each important page
-    foreach ($important_pages as $page_url) {
-        foreach ($provinces as $province) {
-            $urls[] = add_query_arg('province', $province, $page_url);
-        }
-    }
-    
-    return $urls;
-});
-
-// Trigger FlyingPress preload when plugin is activated or settings are updated
 
 
 function woo_price_calc_plugin_activate() {
@@ -72,84 +28,6 @@ function woo_price_calc_plugin_activate() {
     add_option('woo_price_calc_plugin_do_activation_redirect', true);
 }
 
-// CDN Cache Optimization: Cookie + Query String handling
-function handle_province_cdn_cache() {
-    // Skip if it's an admin request, AJAX request, cron, or CLI
-    if (is_admin() || wp_doing_ajax() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) {
-        return;
-    }
-
-    // If province is in URL query string, set a cookie for future requests
-    if (isset($_GET['province']) && !empty($_GET['province'])) {
-        $province = sanitize_text_field($_GET['province']);
-        setcookie('province_cache', $province, time() + (86400 * 30), "/"); // 30 days
-        return;
-    }
-
-    // No PHP redirects - let JavaScript handle redirects
-    // This prevents redirect loops and allows better cache optimization
-}
-add_action('template_redirect', 'handle_province_cdn_cache');
-
-
-
-// Disable cache for homepage without province parameter
-
-// function disable_homepage_cache() {
-//     // Skip if it's an admin request, AJAX request, cron, or CLI
-//     if (is_admin() || wp_doing_ajax() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) {
-//         return;
-//     }
-
-//     // Only disable cache for homepage without province parameter
-//     if ((is_front_page() || is_home()) && !isset($_GET['province'])) {
-//         // Force no-cache headers
-//         header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
-//         header('Pragma: no-cache');
-//         header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
-        
-//         // Additional headers for better cache control
-//         header('X-Accel-Expires: 0');
-//         header('X-Cache-Control: no-cache');
-        
-//         // Remove any existing cache headers
-//         if (function_exists('header_remove')) {
-//             header_remove('Last-Modified');
-//             header_remove('ETag');
-//         }
-//     }
-// }
-// add_action('send_headers', 'disable_homepage_cache', 1);
-
-
-// Additional cache control for CDN and caching plugins
-// function add_cdn_cache_headers() {
-//     // Skip if it's an admin request, AJAX request, cron, or CLI
-//     if (is_admin() || wp_doing_ajax() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) {
-//         return;
-//     }
-
-//     // Only for homepage without province parameter
-//     if ((is_front_page() || is_home()) && !isset($_GET['province'])) {
-//         // Set meta tags for better cache control
-//         add_action('wp_head', function() {
-//             echo '<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">' . "\n";
-//             echo '<meta http-equiv="Pragma" content="no-cache">' . "\n";
-//             echo '<meta http-equiv="Expires" content="0">' . "\n";
-//         }, 1);
-        
-//         // Force output buffering to ensure headers are sent
-//         if (!headers_sent()) {
-//             // Additional CDN-specific headers
-//             header('Surrogate-Control: no-store');
-//             header('CDN-Cache-Control: no-cache');
-//             header('Fastly-Cache-Control: no-cache');
-//         }
-//     }
-// }
-// add_action('init', 'add_cdn_cache_headers', 1);
-
-
 
 
 
@@ -158,12 +36,6 @@ function enqueue_age_verifier_script() {
     wp_enqueue_style('age-verifier', plugin_dir_url(__FILE__) . '/styles.css', array(), '1.0');
 
     wp_enqueue_script('age-verifier', plugin_dir_url(__FILE__) . 'js/age-verifier.js', array('jquery'), '1.0.0', true);
-
-    // Enqueue province form handler script
-    wp_enqueue_script('province-form-handler', plugin_dir_url(__FILE__) . 'js/province-form-handler.js', array('jquery'), '1.0.0', true);
-    
-    // Enqueue province redirect handler script
-    wp_enqueue_script('province-redirect-handler', plugin_dir_url(__FILE__) . 'js/province-redirect-handler.js', array('jquery'), '1.0.0', true);
 
       // Check if the 'woocommerce-google-address.php' plugin is active
       //if (is_plugin_active('woocommerce-google-address/woocommerce-google-address.php')) {
@@ -189,7 +61,6 @@ function get_logo_url() {
         return false;
     }
 }
-
 
 
 function is_admin_simulating_customer_role() {
@@ -219,7 +90,7 @@ function is_admin_simulating_customer_role() {
 
 
 function d_add_province_class($classes) {
-    if (!isset($_GET['province'])) {
+    if (!isset($_COOKIE['province'])) {
         $classes[] = 'no-province';
     }
     return $classes;
@@ -228,12 +99,12 @@ add_filter('body_class', 'd_add_province_class');
 
 function age_verification_dialog() {
     // PHP code to generate the HTML for the form
-    // Check if the province is set in URL
+    // Check if the cookie exists
   
-    if (isset($_GET['province'])) {
+    if (isset($_COOKIE['province'])) {
         return;
     }
-    //var_dump($_GET['province']);
+    //var_dump($_COOKIE['province']);
     ob_start(); // Start output buffering
 
     $province_group2 = array(
@@ -265,7 +136,9 @@ function age_verification_dialog() {
 		<p>This site is intended for adults <span class="bold-txt"><span id="age-limit">19</span> years and older</span>. If you are not legally able to purchase tobacco products in your province, please do not enter this site.</p>
 		</center>
 		<div class="custom-age-btn-box">
-        <form id="d-age-verification-form">
+        <form id="d-age-verification-form" action="<?php echo admin_url('admin-post.php'); ?>" method="post">
+        <input type="hidden" name="action" value="d_age_verification_form">
+        <?php wp_nonce_field('d_age_verification_form_nonce', 'davf_nonce'); ?>
 
         <div class="custom-age-btn-box-row" id="province-box">
       
@@ -405,7 +278,7 @@ function custom_checkout_css() {
 
 function disable_select2_for_state_field($args, $key, $value) {
   
-    if (in_array($key, array('billing_state', 'shipping_state')) && isset($_GET['province']) && !is_admin_simulating_customer_role()) {
+    if (in_array($key, array('billing_state', 'shipping_state')) && isset($_COOKIE['province']) && !is_admin_simulating_customer_role()) {
       
 
         // Set the field as read-only
@@ -432,9 +305,50 @@ function custom_override_checkout_fields( $fields ) {
 
 
 
-// JavaScript will handle form submission instead of PHP
-// Form will submit via AJAX, set cookie, and redirect
+// Hook for logged-in users
+add_action('admin_post_d_age_verification_form', 'handle_d_age_verification_form');
 
+// Hook for non-logged-in users
+add_action('admin_post_nopriv_d_age_verification_form', 'handle_d_age_verification_form');
+
+function handle_d_age_verification_form() {
+    // Verify the nonce
+ 
+    if (!isset($_POST['davf_nonce']) || !wp_verify_nonce($_POST['davf_nonce'], 'd_age_verification_form_nonce')) {
+        wp_die('Session expired. Please refresh the page and try again.', 'Error', array('back_link' => true));
+        // error_log('Invalid nonce');
+
+    }
+    // Check if the province is set in the POST data
+    if (isset($_POST['province'])) {
+        // Sanitize the province value
+        $province = sanitize_text_field($_POST['province']);
+        // Set the cookie to store the selected province
+        // The cookie will expire in 60 days
+          setcookie('province', $province, time() + (86400 * 60), "/");
+        
+      
+       
+       
+    }
+     // Redirect to the current page
+   if (function_exists('rocket_clean_domain')) {
+      //  rocket_clean_domain();
+        //wp_cache_flush();
+    }
+   // Redirect to the current page
+    wp_redirect($_SERVER['HTTP_REFERER']);
+   wp_cache_flush();
+    exit;
+}
+
+function no_cache_for_referer($uri) {
+    if ($_SERVER['REQUEST_URI'] == $_SERVER['HTTP_REFERER']) {
+        return false;
+    }
+    return $uri;
+}
+add_filter('rocket_no_cache', 'no_cache_for_referer');
 
 
 add_filter('woocommerce_checkout_get_value', 'change_default_checkout_state', 10, 2);
@@ -444,10 +358,11 @@ function change_default_checkout_state($value, $input) {
     //if(!is_admin_simulating_customer_role()){
       
         if ($input === 'billing_state' || $input === 'shipping_state') {
-            if (isset($_GET['province'])) { 
+            if (isset($_COOKIE['province'])) { 
                 // Sanitize the province value
-                $province = sanitize_text_field($_GET['province']);
+                $province = sanitize_text_field($_COOKIE['province']);
                 return $province;
+                //wp_cache_flush();
             }
         }
    // }
@@ -458,8 +373,8 @@ function change_default_checkout_state($value, $input) {
 add_action('woocommerce_checkout_process', 'validate_billing_shipping_state');
 
 function validate_billing_shipping_state() {
-    if (isset($_GET['province'])) {
-        $province = sanitize_text_field($_GET['province']);
+    if (isset($_COOKIE['province'])) {
+        $province = sanitize_text_field($_COOKIE['province']);
         
         if (empty($_POST['billing_state'])) {
             $_POST['billing_state'] = $province;
@@ -478,23 +393,22 @@ function validate_billing_shipping_state() {
 
 
 
-
-
-
-
-
-
-
 // Clear product transients (cache) on shop and category pages
 add_action('woocommerce_before_shop_loop_item', function() {
     global $product;
     wc_delete_product_transients($product->get_id());
 });
 
+
 add_action('woocommerce_before_single_product', function() {
     global $product;
     wc_delete_product_transients($product->get_id());
 });
+
+
+
+
+
 
 //add_action('woocommerce_checkout_update_order_review', 'store_guest_billing_state',999);
 
@@ -502,12 +416,8 @@ function store_guest_billing_state($post_data) {
     parse_str($post_data, $checkout_data);
     if (isset($checkout_data['billing_state'])) {
         $province = sanitize_text_field($checkout_data['billing_state']);
-        
-        // Set cookie for CDN cache optimization
-        setcookie('province_cache', $province, time() + (86400 * 30), "/"); // 30 days
-        
-        // Don't redirect here to avoid infinite redirects
-        // The province will be handled by the main province logic
+        setcookie('province', $province, time() + (86400 * 60), "/");
+        $_COOKIE['province'] = $province; // Manually update the $_COOKIE superglobal
     }
 }
 
@@ -557,11 +467,7 @@ function check_taxable_categories($product) {
 function get_curent_tax_province($product){
   
 
-    // Try to get province from URL first, then from cookie as fallback
-    $customer_zone = isset($_GET['province']) ? $_GET['province'] : (isset($_COOKIE['province_cache']) ? $_COOKIE['province_cache'] : null);
-    
-    // Debug: Check if province is being read correctly
-    // error_log('Province from URL: ' . $customer_zone);
+    $customer_zone = isset($_COOKIE['province']) ? $_COOKIE['province'] : null;
     
     $tax = 0;
     if (check_taxable_categories($product) && $customer_zone) { 
@@ -915,8 +821,7 @@ function d_alter_price_cart( $cart ) {
 }
 
 function check_product_pa_size($price, $product) {
-    // Try to get province from URL first, then from cookie as fallback
-    $customer_zone = isset($_GET['province']) ? $_GET['province'] : (isset($_COOKIE['province_cache']) ? $_COOKIE['province_cache'] : null);
+    $customer_zone = isset($_COOKIE['province']) ? $_COOKIE['province'] : null;
     $provinces = get_option('woocommerce_taxable_provinces', array());
     $tax_60_ml = get_option('woocommerce_taxable_categories_60ml', 0);
     $tax_120_ml = get_option('woocommerce_taxable_categories_120ml', 0);
@@ -928,7 +833,7 @@ function check_product_pa_size($price, $product) {
       
            
   //  $customer_zone = isset($_COOKIE['province']) ? $_COOKIE['province'] : null;
-    // var_dump($customer_zone);
+    //var_dump($customer_zone);
 
 
         if ($product->is_type('variation')) {
@@ -1013,8 +918,8 @@ function d_adjust_variation_sale_price($price, $variation) {
 
 
 function modify_fibosearch_query_args_based_on_province( $args ) {
-    if (isset($_GET['province'])) {
-        $province_code = $_GET['province'];
+    if (isset($_COOKIE['province'])) {
+        $province_code = $_COOKIE['province'];
 
         // Get excluded product IDs from options
         $exclude_ids = get_option('wc_province_hide_product_' . $province_code, array());
@@ -1046,7 +951,7 @@ function hide_selected_products($query) {
         return;
     }
  
-    $province_code = isset($_GET['province']) ? sanitize_text_field($_GET['province']) : '';
+    $province_code = isset($_COOKIE['province']) ? sanitize_text_field($_COOKIE['province']) : '';
     
 
             // Get the selected products from the settings
@@ -1102,7 +1007,7 @@ add_action('pre_get_posts', 'hide_selected_products');
 // This part should be in a separate hook because `pre_get_posts` runs too early for redirections.
 
 function product_hide_redirect() {
-    $province_code = isset($_GET['province']) ? sanitize_text_field($_GET['province']) : '';
+    $province_code = isset($_COOKIE['province']) ? sanitize_text_field($_COOKIE['province']) : '';
 
     // Get the selected products and categories from the settings
     $selected_products = get_option('wc_province_hide_product_' . $province_code, array());
@@ -1158,7 +1063,7 @@ function modify_product_purchasability( $purchasable, $product ) {
         
     // }
     if(is_product()){
-        $province_code = isset($_GET['province']) ? sanitize_text_field($_GET['province']) : '';
+        $province_code = isset($_COOKIE['province']) ? sanitize_text_field($_COOKIE['province']) : '';
 
         // Retrieve settings
         $selected_products = get_option('wc_province_hide_product_' . $province_code, array());
@@ -1233,7 +1138,7 @@ function modify_variation_purchasability( $purchasable, $variation ) {
     //     return $purchasable;
     // }
     if(is_product()){
-        $province_code = isset($_GET['province']) ? sanitize_text_field($_GET['province']) : '';
+        $province_code = isset($_COOKIE['province']) ? sanitize_text_field($_COOKIE['province']) : '';
         
         // Fetch settings for excluded products and categories
         $selected_products = get_option('wc_province_hide_product_' . $province_code, array());
@@ -1269,8 +1174,8 @@ function hide_selected_products_from_shortcode($query_args, $attributes, $type) 
     if ($type == 'products') {
       //  var_dump($type);
      //   if (($query_args->get('post_type') == 'product_variation' || $query_args->get('post_type') == 'product' )) {
-            // Get the province code from the URL query
-            $province_code = isset($_GET['province']) ? sanitize_text_field($_GET['province']) : '';
+            // Get the province code from the cookie
+            $province_code = isset($_COOKIE['province']) ? sanitize_text_field($_COOKIE['province']) : '';
 
             // Get the selected products from the settings
             $selected_products = get_option('wc_province_hide_product_' . $province_code);
