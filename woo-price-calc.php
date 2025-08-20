@@ -86,8 +86,19 @@ function handle_province_cdn_cache() {
         return;
     }
 
-    // No PHP redirects - let JavaScript handle redirects
-    // This prevents redirect loops and allows better cache optimization
+    // PHP redirect - if no province in URL but cookie exists
+    if (!isset($_GET['province']) && isset($_COOKIE['province_cache']) && !empty($_COOKIE['province_cache'])) {
+        $province = sanitize_text_field($_COOKIE['province_cache']);
+        // Redirect to current page with province parameter
+        wp_redirect(add_query_arg('province', $province, $_SERVER['REQUEST_URI']));
+        exit;
+    }
+
+    // If no province in URL and no cookie, redirect to ?province=no
+    if (!isset($_GET['province']) && (!isset($_COOKIE['province_cache']) || empty($_COOKIE['province_cache']))) {
+        wp_redirect(add_query_arg('province', 'no', $_SERVER['REQUEST_URI']));
+        exit;
+    }
 }
 add_action('template_redirect', 'handle_province_cdn_cache');
 
@@ -162,8 +173,8 @@ function enqueue_age_verifier_script() {
     // Enqueue province form handler script
     wp_enqueue_script('province-form-handler', plugin_dir_url(__FILE__) . 'js/province-form-handler.js', array('jquery'), '1.0.0', true);
     
-    // Enqueue province redirect handler script
-    wp_enqueue_script('province-redirect-handler', plugin_dir_url(__FILE__) . 'js/province-redirect-handler.js', array('jquery'), '1.0.0', true);
+    // Enqueue province redirect handler script (commented out - using PHP redirects instead)
+    // wp_enqueue_script('province-redirect-handler', plugin_dir_url(__FILE__) . 'js/province-redirect-handler.js', array('jquery'), '1.0.0', true);
 
       // Check if the 'woocommerce-google-address.php' plugin is active
       //if (is_plugin_active('woocommerce-google-address/woocommerce-google-address.php')) {
