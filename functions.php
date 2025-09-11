@@ -4,6 +4,65 @@
  */
 
 
+// [acf_rating field="rating" id="123" max="5" show_text="true"]
+add_shortcode('acf_rating', function($atts) {
+    $a = shortcode_atts([
+        'field'     => 'rating',   // ACF field name (number)
+        'id'        => '',         // Optional post ID (defaults to current)
+        'max'       => 5,          // Max stars
+        'show_text' => 'true',     // "true" | "false" to show 3.5/5 text
+    ], $atts, 'acf_rating');
+
+    $post_id = $a['id'] !== '' ? intval($a['id']) : get_the_ID();
+    $max     = max(1, intval($a['max']));
+
+    // Get rating value from ACF (fallback to post meta if ACF not active)
+    if (function_exists('get_field')) {
+        $value = get_field($a['field'], $post_id);
+    } else {
+        $value = get_post_meta($post_id, $a['field'], true);
+    }
+
+    if ($value === '' || $value === null) return ''; // nothing to show
+
+    $value = floatval($value);
+    $value = max(0, min($value, $max)); // Clamp rating
+
+    $percent = ($value / $max) * 100.0;
+    $display_value = rtrim(rtrim(number_format($value, 1), '0'), '.'); // e.g. 3.5
+    $label_vis     = $display_value . '/<strong>' . intval($max) . '</strong>'; // 3.5/<strong>5</strong>
+    $label_aria    = sprintf('%s out of %s', $display_value, $max);
+
+    // SVG star (color controlled via CSS "currentColor")
+    $star_svg = '
+<svg xmlns="http://www.w3.org/2000/svg" width="19" height="17" viewBox="0 0 19 17" fill="none" aria-hidden="true" focusable="false">
+  <path d="M9.24494 0L11.8641 5.63991L18.0374 6.38809L13.4829 10.6219L14.679 16.7243L9.24494 13.701L3.8109 16.7243L5.00697 10.6219L0.452479 6.38809L6.62573 5.63991L9.24494 0Z" fill="currentColor"/>
+</svg>';
+
+    ob_start(); ?>
+    <span class="acf-rating" role="img" aria-label="<?php echo esc_attr($label_aria); ?>">
+      <span class="acf-rating__wrap">
+        <span class="acf-rating__bg">
+          <?php for ($i = 0; $i < $max; $i++) echo '<span class="acf-rating__star">'.$star_svg.'</span>'; ?>
+        </span>
+        <span class="acf-rating__fg" style="width: <?php echo esc_attr($percent); ?>%;">
+          <?php for ($i = 0; $i < $max; $i++) echo '<span class="acf-rating__star">'.$star_svg.'</span>'; ?>
+        </span>
+      </span>
+
+      <?php if (filter_var($a['show_text'], FILTER_VALIDATE_BOOLEAN)) : ?>
+        <span class="acf-rating__text">
+          <?php echo wp_kses($label_vis, ['strong' => []]); ?>
+        </span>
+      <?php endif; ?>
+    </span>
+
+    <?php
+    return ob_get_clean();
+});
+
+
+
 
 /** 
  * Show custom styles in backend 
@@ -711,42 +770,65 @@ function gp_render_tax_checklist_tree($taxonomy) {
     echo '</ul>';
 }
 
-// AJAX handler for ACF rating
-add_action('wp_ajax_get_acf_rating', 'get_acf_rating_ajax');
-add_action('wp_ajax_nopriv_get_acf_rating', 'get_acf_rating_ajax');
-
-function get_acf_rating_ajax() {
-    $post_id = intval($_POST['post_id']);
-    
-    if (!$post_id) {
-        wp_die('Invalid post ID');
-    }
-    
-    // Get ACF rating field value
-    $rating = get_field('rating', $post_id);
-    
-    if ($rating) {
-        // If rating is a number, display as stars
-        if (is_numeric($rating)) {
-            $stars = '';
-            for ($i = 1; $i <= 5; $i++) {
-                if ($i <= $rating) {
-                    $stars .= '★';
-                } else {
-                    $stars .= '☆';
-                }
+// Add ACF rating field to REST API response
+add_action('rest_api_init', function() {
+    register_rest_field('modules', 'acf_rating', array(
+        'get_callback' => function($post) {
+            $post_id = $post['id'];
+            $field = 'rating';
+            $max = 5;
+            $show_text = true;
+            
+            // Get rating value from ACF (fallback to post meta if ACF not active)
+            if (function_exists('get_field')) {
+                $value = get_field($field, $post_id);
+            } else {
+                $value = get_post_meta($post_id, $field, true);
             }
-            echo $stars . ' (' . $rating . '/5)';
-        } else {
-            // If rating is text or other format, display as is
-            echo esc_html($rating);
-        }
-    } else {
-        echo 'No rating';
-    }
-    
-    wp_die();
-}
+            
+            if ($value === '' || $value === null) return ''; // nothing to show
+            
+            $value = floatval($value);
+            $value = max(0, min($value, $max)); // Clamp rating
+            
+            $percent = ($value / $max) * 100.0;
+            $display_value = rtrim(rtrim(number_format($value, 1), '0'), '.'); // e.g. 3.5
+            $label_vis = $display_value . '/<strong>' . intval($max) . '</strong>'; // 3.5/<strong>5</strong>
+            $label_aria = sprintf('%s out of %s', $display_value, $max);
+            
+            // SVG star (color controlled via CSS "currentColor")
+            $star_svg = '
+<svg xmlns="http://www.w3.org/2000/svg" width="19" height="17" viewBox="0 0 19 17" fill="none" aria-hidden="true" focusable="false">
+  <path d="M9.24494 0L11.8641 5.63991L18.0374 6.38809L13.4829 10.6219L14.679 16.7243L9.24494 13.701L3.8109 16.7243L5.00697 10.6219L0.452479 6.38809L6.62573 5.63991L9.24494 0Z" fill="currentColor"/>
+</svg>';
+            
+            ob_start(); ?>
+            <span class="acf-rating" role="img" aria-label="<?php echo esc_attr($label_aria); ?>">
+              <span class="acf-rating__wrap">
+                <span class="acf-rating__bg">
+                  <?php for ($i = 0; $i < $max; $i++) echo '<span class="acf-rating__star">'.$star_svg.'</span>'; ?>
+                </span>
+                <span class="acf-rating__fg" style="width: <?php echo esc_attr($percent); ?>%;">
+                  <?php for ($i = 0; $i < $max; $i++) echo '<span class="acf-rating__star">'.$star_svg.'</span>'; ?>
+                </span>
+              </span>
+              
+              <?php if ($show_text) : ?>
+                <span class="acf-rating__text">
+                  <?php echo wp_kses($label_vis, ['strong' => []]); ?>
+                </span>
+              <?php endif; ?>
+            </span>
+            
+            <?php
+            return ob_get_clean();
+        },
+        'schema' => array(
+            'description' => 'ACF rating field with HTML output',
+            'type' => 'string'
+        )
+    ));
+});
 
 // Register modules post type
 function register_modules_post_type() {

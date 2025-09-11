@@ -303,22 +303,26 @@
         
         console.log('🏷️ Brand for post:', title, '=', brandName);
         
+        // Get rating from API response
+        const rating = post.acf_rating || 'No rating';
+        
         html += `
           <div class="result-item">
             <a href="${link}" class="module-info">
               ${featuredImage}
               <h3>${title}</h3>
               <p>${excerpt}</p>
-              <div class="rating" data-post-id="${post.id}">Loading rating...</div>
+              <div class="rating">${rating}</div>
               <div class="meta">
                 <div><strong>Brand:</strong> <span>${brandName}</span></div>
                 <div><strong>Developer:</strong> <span>${authorName}</span></div>
               </div>
-              <button class="btn-primary btn-view-module">View Module</button>
+              <span class="btn-primary btn-view-module">View Module</span>
             </a>
           </div>
         `;
       });
+      
       
       html += `
           </div>
@@ -399,9 +403,6 @@
         // Re-initialize accordion functionality for any new content
         initAccordion();
         
-        // Load ACF ratings after content is rendered
-        loadACFRatings();
-        
         // Load author names after content is rendered
         loadAuthorNames();
         
@@ -411,37 +412,6 @@
       }
     }
 
-    // Load ACF ratings for all posts
-    async function loadACFRatings() {
-      console.log('⭐ Loading ACF ratings...');
-      const ratingElements = document.querySelectorAll('.rating[data-post-id]');
-      
-      for (const element of ratingElements) {
-        const postId = element.getAttribute('data-post-id');
-        try {
-          // Call WordPress AJAX to get ACF rating
-          const response = await fetch('/wp-admin/admin-ajax.php', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `action=get_acf_rating&post_id=${postId}`
-          });
-          
-          if (response.ok) {
-            const rating = await response.text();
-            element.innerHTML = rating;
-          } else {
-            element.innerHTML = 'No rating';
-          }
-        } catch (error) {
-          console.error('❌ Error loading rating for post', postId, ':', error);
-          element.innerHTML = 'No rating';
-        }
-      }
-      
-      console.log('✅ ACF ratings loaded for', ratingElements.length, 'posts');
-    }
 
     // Load author names for posts that show "Author ID: X"
     async function loadAuthorNames() {
