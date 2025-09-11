@@ -1,63 +1,84 @@
 (function(apiFetch){
-    console.log('🔍 Modules Query Filters: Script loaded');
-  
+    // Modules Query Filters loaded
+    
     const REST = {
-      path: '/wp/v2/modules',
+      path: '/wp-json/wp/v2/modules',
       nonce: window.wp?.apiFetch?.nonce || ''
     };
   
     function q(selector, ctx=document){ return ctx.querySelector(selector); }
     function qa(selector, ctx=document){ return Array.from(ctx.querySelectorAll(selector)); }
+    
+    // Check if device is mobile
+    function isMobile() {
+      return window.innerWidth <= 768;
+    }
+    
+    // Get responsive per page count
+    function getPerPage() {
+      return isMobile() ? 3 : 8;
+    }
+    
+    // Show loading state
+    function showLoading() {
+      const container = document.querySelector('.modules-results-container');
+      if (container) {
+        container.classList.add('loading');
+        const loadingEl = container.querySelector('.loading-container');
+        if (loadingEl) {
+          loadingEl.style.display = 'flex';
+        }
+      }
+    }
+    
+    // Hide loading state
+    function hideLoading() {
+      const container = document.querySelector('.modules-results-container');
+      if (container) {
+        container.classList.remove('loading');
+        const loadingEl = container.querySelector('.loading-container');
+        if (loadingEl) {
+          loadingEl.style.display = 'none';
+        }
+      }
+    }
   
     // Find the target element by anchor (id="<anchor>")
     function getTargetEl(anchor){ 
-      console.log('🔍 Looking for element with ID:', anchor);
-      const element = document.getElementById(anchor);
-      if (element) {
-        console.log('✅ Found target element:', element);
-        return element;
-      } else {
-        console.log('❌ Target element not found. Available elements with IDs:');
-        const allElementsWithIds = document.querySelectorAll('[id]');
-        allElementsWithIds.forEach(el => {
-          if (el.id.includes('loop') || el.id.includes('module') || el.id.includes('query')) {
-            console.log('  - ID:', el.id, 'Element:', el);
-          }
-        });
-        return null;
-      }
+      return document.getElementById(anchor);
     }
     
     // Create target element if it doesn't exist
     function createTargetElement(anchor){
-      console.log('🔨 Creating target element with ID:', anchor);
-      
-      // Create the main container
       const targetEl = document.createElement('div');
       targetEl.id = anchor;
-      targetEl.className = 'modules-results-container';
       
-      // Find a good place to insert it (after the form)
-      const form = document.querySelector('form.modules-filters');
-      if (form) {
-        // Insert after the form
-        form.parentNode.insertBefore(targetEl, form.nextSibling);
-        console.log('✅ Target element created and inserted after form');
+      const existingContainer = document.querySelector('.modules-results-container');
+      
+      if (existingContainer) {
+        const existingTarget = existingContainer.querySelector('#' + anchor);
+        if (existingTarget) {
+          return existingTarget;
+        }
+        existingContainer.appendChild(targetEl);
       } else {
-        // Fallback: append to body
-        document.body.appendChild(targetEl);
-        console.log('✅ Target element created and appended to body');
+        const form = document.querySelector('form.modules-filters');
+        if (form) {
+          form.parentNode.insertBefore(targetEl, form.nextSibling);
+        } else {
+          document.body.appendChild(targetEl);
+        }
       }
       
       return targetEl;
     }
-    
+  
     function buildDefaults(form){
       return {
         anchor: form.dataset.anchor,
         query: {
           postType: 'modules', // Use modules post type
-          perPage: 8, // Fixed 8 items per page
+          perPage: getPerPage(), // Responsive: 3 on mobile, 8 on desktop
           orderBy: (form.dataset.orderby || 'date'),
           order: (form.dataset.order || 'desc').toLowerCase(), // Keep lowercase
           page: 1,
@@ -65,58 +86,32 @@
         }
       };
     }
-    
+  
     function buildAttributes(form){
-      console.log('🔧 Building attributes from form:', form);
-      console.log('📋 Form dataset:', {
-        anchor: form.dataset.anchor,
-        taxonomy: form.dataset.taxonomy,
-        postType: form.dataset.postType,
-        perPage: form.dataset.perPage,
-        orderby: form.dataset.orderby,
-        order: form.dataset.order
-      });
-      
       const fd = new FormData(form);
-      console.log('📋 FormData entries:');
-      for (let [key, value] of fd.entries()) {
-        console.log(`  ${key}: ${value}`);
-      }
-      
       const attrs = buildDefaults(form);
-      
-      console.log('📋 Form data entries:');
-      for (let [key, value] of fd.entries()) {
-        console.log(`  ${key}: ${value}`);
-      }
-      
+  
       // search
       const search = fd.get('s');
       if (search) {
         attrs.query.search = search;
-        console.log('🔍 Search:', search);
       }
       
       // orderby
       const orderby = fd.get('orderby');
       if (orderby) {
         attrs.query.orderBy = orderby;
-        console.log('📊 OrderBy:', orderby);
       }
       
       // order
       const order = fd.get('order');
       if (order) {
         attrs.query.order = order.toUpperCase();
-        console.log('📊 Order:', order.toUpperCase());
       }
-  
+
       // taxonomy
       const taxonomy = form.dataset.taxonomy || 'industry';
       const terms = getSelectedTerms(form);
-      console.log('🏷️ Taxonomy:', taxonomy);
-      console.log('🏷️ Terms:', terms);
-      console.log('🏷️ Terms length:', terms.length);
       
       if (terms.length){
         attrs.query.taxQuery = [{
@@ -126,27 +121,20 @@
           operator: 'IN',
           includeChildren: true
         }];
-        console.log('🏷️ Tax query added:', attrs.query.taxQuery);
-      } else {
-        console.log('🏷️ No terms selected, no tax query');
       }
-  
-      console.log('🔧 Final attributes:', attrs);
+
       return attrs;
     }
   
     async function renderQuery(attributes){
-      console.log('🌐 API Request data:', attributes);
-      
       try {
-        // Use /wp/v2/modules API with proper parameters
         const query = attributes.query;
         const postType = query.postType || 'modules';
         const currentPage = query.page || 1;
-        const perPage = 8; // Fixed 8 items per page
+        const perPage = getPerPage();
         
         // Build API URL with parameters
-        let url = `/wp/v2/${postType}?per_page=${perPage}&page=${currentPage}&orderby=${query.orderBy || 'date'}`;
+        let url = `/wp-json/wp/v2/${postType}?per_page=${perPage}&page=${currentPage}&orderby=${query.orderBy || 'date'}&_embed=author,wp:featuredmedia,wp:term`;
         
         // Fix order parameter - ensure lowercase
         const order = (query.order || 'desc').toLowerCase();
@@ -155,59 +143,35 @@
         // Add taxonomy filter if exists
         if (query.taxQuery && query.taxQuery.length > 0) {
           const taxQuery = query.taxQuery[0];
-          console.log('🏷️ Adding taxonomy filter:', taxQuery);
           url += `&${taxQuery.taxonomy}=${taxQuery.terms.join(',')}`;
-          console.log('🏷️ URL after taxonomy:', url);
-        } else {
-          console.log('🏷️ No taxonomy filter to add');
         }
         
         // Add search if exists
         if (query.search) {
-          console.log('🔍 Adding search filter:', query.search);
           url += `&search=${encodeURIComponent(query.search)}`;
-          console.log('🔍 URL after search:', url);
-        } else {
-          console.log('🔍 No search filter to add');
         }
         
-        console.log('🌐 Final API URL:', url);
-        
-        // Get posts from API
-        const res = await apiFetch({
-          path: url.replace(/^\//,''),
-          method: 'GET',
-          headers: { 'X-WP-Nonce': REST.nonce }
+        // Get posts from API with headers
+        const response = await fetch(url, {
+          method: 'GET'
+          // Temporarily remove nonce to test
         });
         
-        console.log('📡 API Response:', res);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
-        // Try to get pagination info from response headers
+        const res = await response.json();
+        
+        // Get pagination headers from the same response
+        const xWpTotal = response.headers.get('X-WP-Total');
+        const xWpTotalPages = response.headers.get('X-WP-TotalPages');
+        
         let totalPages = null;
         let totalPosts = null;
         
-        try {
-          // Check if response has pagination headers
-          const response = await fetch(url, {
-            method: 'GET',
-            headers: { 'X-WP-Nonce': REST.nonce }
-          });
-          
-          const xWpTotal = response.headers.get('X-WP-Total');
-          const xWpTotalPages = response.headers.get('X-WP-TotalPages');
-          
-          if (xWpTotal) totalPosts = parseInt(xWpTotal);
-          if (xWpTotalPages) totalPages = parseInt(xWpTotalPages);
-          
-          console.log('📄 API Pagination Headers:', {
-            'X-WP-Total': xWpTotal,
-            'X-WP-TotalPages': xWpTotalPages,
-            totalPosts,
-            totalPages
-          });
-        } catch (error) {
-          console.log('⚠️ Could not get pagination headers:', error);
-        }
+        if (xWpTotal) totalPosts = parseInt(xWpTotal);
+        if (xWpTotalPages) totalPages = parseInt(xWpTotalPages);
         
         // Build simple results HTML
         return await buildSimpleResults(res, attributes, currentPage, perPage, totalPages, totalPosts);
@@ -217,7 +181,7 @@
         return '';
       }
     }
-
+  
     async function buildSimpleResults(posts, attributes, currentPage, perPage, totalPagesFromAPI = null, totalPostsFromAPI = null){
       if (!posts || !Array.isArray(posts)) {
         console.log('📄 No posts to render');
@@ -266,23 +230,92 @@
       });
       
       let html = `
-        <div class="modules-results">
-          <div class="results-list">
+        <div class="results-list">
       `;
       
       // Render posts
       posts.forEach((post, index) => {
         // Safe access to post properties
         const title = post.title?.rendered || post.title || 'No Title';
-        const excerpt = post.excerpt?.rendered || post.excerpt || 'No excerpt available';
+        let excerpt = post.excerpt?.rendered || post.excerpt || 'No excerpt available';
+        
+        // Clean excerpt: remove HTML tags and "read more" text
+        excerpt = excerpt.replace(/<[^>]*>/g, ''); // Remove HTML tags
+        excerpt = excerpt.replace(/read more/gi, ''); // Remove "read more" text
+        excerpt = excerpt.replace(/\[&hellip;\]/g, ''); // Remove WordPress ellipsis
+        excerpt = excerpt.trim();
+        
+        // Limit to 8 words
+        const words = excerpt.split(' ');
+        if (words.length > 8) {
+          excerpt = words.slice(0, 8).join(' ') + '...';
+        }
+        
         const link = post.link || '#';
         const date = post.date ? new Date(post.date).toLocaleDateString() : 'No date';
         
+        // Debug: Log post structure to understand data
+        console.log('🔍 Post data for', title, ':', {
+          featured_media: post.featured_media,
+          embedded: post._embedded,
+          author: post.author,
+          meta: post.meta
+        });
+        
+        // Get featured image
+        let imageUrl = 'module-preview.png'; // Default fallback
+        
+        if (post.featured_media && post._embedded && post._embedded['wp:featuredmedia']) {
+          const featuredMedia = post._embedded['wp:featuredmedia'][0];
+          if (featuredMedia && featuredMedia.source_url) {
+            imageUrl = featuredMedia.source_url;
+          }
+        }
+        
+        const featuredImage = `<img src="${imageUrl}" alt="Module Preview" class="module-img" />`;
+        
+        // Get author name
+        let authorName = 'Unknown Developer';
+        
+        if (post._embedded && post._embedded['author'] && post._embedded['author'][0]) {
+          authorName = post._embedded['author'][0].name;
+        } else if (post.author) {
+          // Fallback to author ID if embedded data not available
+          authorName = `Author ID: ${post.author}`;
+        }
+        
+        console.log('👤 Author for', title, ':', authorName);
+        
+        // Get brand from taxonomy
+        let brandName = 'Unknown Brand';
+        if (post._embedded && post._embedded['wp:term']) {
+          // Find brand taxonomy terms
+          const brandTerms = post._embedded['wp:term'].find(terms => 
+            terms.some(term => term.taxonomy === 'brand')
+          );
+          if (brandTerms) {
+            const brandTerm = brandTerms.find(term => term.taxonomy === 'brand');
+            if (brandTerm) {
+              brandName = brandTerm.name;
+            }
+          }
+        }
+        
+        console.log('🏷️ Brand for post:', title, '=', brandName);
+        
         html += `
           <div class="result-item">
-            <h4><a href="${link}">${title}</a></h4>
-            <div class="excerpt">${excerpt}</div>
-            <div class="date">${date}</div>
+            <a href="${link}" class="module-info">
+              ${featuredImage}
+              <h3>${title}</h3>
+              <p>${excerpt}</p>
+              <div class="rating" data-post-id="${post.id}">Loading rating...</div>
+              <div class="meta">
+                <div><strong>Brand:</strong> <span>${brandName}</span></div>
+                <div><strong>Developer:</strong> <span>${authorName}</span></div>
+              </div>
+              <button class="btn-primary btn-view-module">View Module</button>
+            </a>
           </div>
         `;
       });
@@ -349,10 +382,13 @@
       console.log('📄 Built simple results HTML');
       return html;
     }
-
+    
     function replaceResultsHtml(targetEl, html){
       if (targetEl) {
         console.log('🔄 Replacing target element content with results');
+        
+        // Hide loading state
+        hideLoading();
         
         // Replace entire content with new results
         targetEl.innerHTML = html;
@@ -363,10 +399,72 @@
         // Re-initialize accordion functionality for any new content
         initAccordion();
         
+        // Load ACF ratings after content is rendered
+        loadACFRatings();
+        
+        // Load author names after content is rendered
+        loadAuthorNames();
+        
         console.log('✅ Results replaced successfully');
       } else {
         console.error('❌ Target element not found for replacement');
       }
+    }
+
+    // Load ACF ratings for all posts
+    async function loadACFRatings() {
+      console.log('⭐ Loading ACF ratings...');
+      const ratingElements = document.querySelectorAll('.rating[data-post-id]');
+      
+      for (const element of ratingElements) {
+        const postId = element.getAttribute('data-post-id');
+        try {
+          // Call WordPress AJAX to get ACF rating
+          const response = await fetch('/wp-admin/admin-ajax.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `action=get_acf_rating&post_id=${postId}`
+          });
+          
+          if (response.ok) {
+            const rating = await response.text();
+            element.innerHTML = rating;
+          } else {
+            element.innerHTML = 'No rating';
+          }
+        } catch (error) {
+          console.error('❌ Error loading rating for post', postId, ':', error);
+          element.innerHTML = 'No rating';
+        }
+      }
+      
+      console.log('✅ ACF ratings loaded for', ratingElements.length, 'posts');
+    }
+
+    // Load author names for posts that show "Author ID: X"
+    async function loadAuthorNames() {
+      console.log('👤 Loading author names...');
+      const authorElements = document.querySelectorAll('.meta p:last-child');
+      
+      for (const element of authorElements) {
+        const text = element.textContent;
+        if (text.includes('Author ID:')) {
+          const authorId = text.replace('Author ID:', '').trim();
+          try {
+            const response = await fetch(`/wp-json/wp/v2/users/${authorId}`);
+            if (response.ok) {
+              const authorData = await response.json();
+              element.innerHTML = `<strong>Developer:</strong> ${authorData.name}`;
+            }
+          } catch (error) {
+            console.error('❌ Error loading author', authorId, ':', error);
+          }
+        }
+      }
+      
+      console.log('✅ Author names loaded');
     }
 
     function addPaginationListeners(targetEl){
@@ -380,6 +478,9 @@
           
           const page = parseInt(this.getAttribute('data-page'));
           console.log('📄 Pagination clicked, page:', page);
+          
+          // Show loading state
+          showLoading();
           
           // Get current form data
           const form = document.querySelector('form.modules-filters');
@@ -402,6 +503,9 @@
 
     async function loadDefaultList(form, anchor){
       console.log('📄 Loading default list for anchor:', anchor);
+      
+      // Show loading state
+      showLoading();
       
       try {
         // Build default attributes (no filters)
@@ -494,7 +598,7 @@
         return;
       }
       
-      e.preventDefault();
+          e.preventDefault();
       console.log('🎛️ Parent clicked, toggling accordion');
       console.log('🎛️ Before toggle - classes:', parent.className);
       
@@ -527,27 +631,6 @@
       `;
     }
 
-    // Show loading state
-    function showLoading() {
-      console.log('⏳ Showing loading state');
-      const resultsContainer = document.querySelector('.modules-results-container');
-      if (resultsContainer) {
-        resultsContainer.innerHTML = `
-          <div class="modules-results">
-            <div class="loading-container">
-              <div class="loading-spinner"></div>
-              <p class="loading-text">Loading modules...</p>
-            </div>
-          </div>
-        `;
-      }
-    }
-
-    // Hide loading state
-    function hideLoading() {
-      console.log('✅ Hiding loading state');
-      // Loading will be replaced by actual content
-    }
 
     // Initialize auto-submit on checkbox change
     function initAutoSubmit(form, anchor) {
@@ -558,6 +641,9 @@
       checkboxes.forEach(checkbox => {
         checkbox.addEventListener('change', async function() {
           console.log('☑️ Checkbox changed, auto-submitting form');
+          
+          // Show loading state
+          showLoading();
           
           // Build attributes from form
           const attrs = buildAttributes(form);
@@ -599,6 +685,19 @@
       
       const anchor = form.dataset.anchor || 'modules-results';
       console.log('🎯 Target anchor:', anchor);
+      
+      // Debug: Check initial HTML structure
+      const container = document.querySelector('.modules-results-container');
+      if (container) {
+        console.log('📋 Initial container HTML:', container.outerHTML);
+        const heading = container.querySelector('h3');
+        const description = container.querySelector('.description');
+        console.log('📋 Initial - Heading exists:', !!heading, 'Description exists:', !!description);
+        if (heading) console.log('📋 Heading text:', heading.textContent);
+        if (description) console.log('📋 Description text:', description.textContent);
+      } else {
+        console.log('❌ No .modules-results-container found');
+      }
       
       // Initialize accordion functionality
       initAccordion();
@@ -660,12 +759,36 @@
             searchInput.value = '';
           }
           
+          // Show loading state
+          showLoading();
+          
           // Load default list
           loadDefaultList(form, anchor);
         });
       }
       
       console.log('✅ Modules Filters initialized successfully');
+    });
+    
+    // Handle window resize for responsive perPage
+    let resizeTimeout;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(function() {
+        console.log('📱 Window resized, checking if perPage should change');
+        
+        const form = document.querySelector('form.modules-filters');
+        if (form) {
+          const anchor = form.dataset.anchor || 'modules-results';
+          const targetEl = document.getElementById(anchor);
+          
+          // Only reload if there's content and the perPage would change
+          if (targetEl && targetEl.innerHTML.trim() && !targetEl.querySelector('.loading-container')) {
+            console.log('🔄 Reloading with new perPage:', getPerPage());
+            loadDefaultList(form, anchor);
+          }
+        }
+      }, 300); // Debounce resize events
     });
   
   })(window.wp?.apiFetch || window.apiFetch);
