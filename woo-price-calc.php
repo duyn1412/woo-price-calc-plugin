@@ -66,7 +66,18 @@ function ba_get_current_province() {
     }
     
     $val = null;
+    $checkout_province = WC()->session->get('ba_checkout_province');
 
+    // PRIORITY 1: Checkout form province (from session) - ONLY on checkout page
+    if (is_checkout() && function_exists('WC') && WC()->session) {
+        if ($checkout_province && ba_is_valid_province_code($checkout_province)) {
+            $cached = true;
+            $cached_province = strtoupper($checkout_province);
+            return $cached_province;
+        }
+    }
+
+    // PRIORITY 2: GET parameter (query string) - HIGHEST PRIORITY
     if (isset($_GET['province']) && is_string($_GET['province'])) {
         $val = strtoupper(sanitize_text_field($_GET['province']));
         if (!ba_is_valid_province_code($val)) { 
@@ -78,6 +89,8 @@ function ba_get_current_province() {
         $cached_province = $val;
         return $val;
     }
+    
+    // PRIORITY 3: Cookie (fallback)
     if (isset($_COOKIE['province']) && is_string($_COOKIE['province'])) {
         $val = strtoupper(sanitize_text_field($_COOKIE['province']));
         if (!ba_is_valid_province_code($val)) { 
