@@ -69,15 +69,18 @@ function ba_get_current_province() {
     $checkout_province = WC()->session->get('ba_checkout_province');
 
     // PRIORITY 1: Checkout form province (from session) - ONLY on checkout page
-    if (is_checkout() && function_exists('WC') && WC()->session) {
-        if ($checkout_province && ba_is_valid_province_code($checkout_province)) {
-            $cached = true;
-            $cached_province = strtoupper($checkout_province);
-            return $cached_province;
-        }
-    }
-
-    // PRIORITY 2: GET parameter (query string) - HIGHEST PRIORITY
+    $checkout_id = get_option('woocommerce_checkout_page_id');
+    $current_id = get_the_ID();
+    $global_post_id = isset($GLOBALS['post']) ? $GLOBALS['post']->ID : 'not set';
+    $uri_contains_checkout = strpos($_SERVER['REQUEST_URI'], 'checkout') !== false;
+    
+    $is_checkout_page = is_checkout() || 
+                       is_page('checkout') || 
+                       ($current_id == $checkout_id) ||
+                       ($global_post_id == $checkout_id) ||
+                       $uri_contains_checkout;
+    
+    // PRIORITY 1: GET parameter (query string) - HIGHEST PRIORITY (even on checkout)
     if (isset($_GET['province']) && is_string($_GET['province'])) {
         $val = strtoupper(sanitize_text_field($_GET['province']));
         if (!ba_is_valid_province_code($val)) { 
@@ -88,6 +91,15 @@ function ba_get_current_province() {
         $cached = true;
         $cached_province = $val;
         return $val;
+    }
+    
+    // PRIORITY 2: Checkout form province (from session) - ONLY on checkout page
+    if ($is_checkout_page && function_exists('WC') && WC()->session) {
+        if ($checkout_province && ba_is_valid_province_code($checkout_province)) {
+            $cached = true;
+            $cached_province = strtoupper($checkout_province);
+            return $cached_province;
+        }
     }
     
     // PRIORITY 3: Cookie (fallback)
